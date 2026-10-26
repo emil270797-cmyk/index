@@ -210,12 +210,26 @@ $('#board').onclick=e=>{const q=e.target.closest('.sq');if(!q||over||busy||pend)
  const p=S.b[r][c];
  if(p&&p[0]===S.t&&(mode===2||S.t===hu)){sel=[r,c];legalSel=legal(S,r,c)}else{sel=null;legalSel=[]}
  render()};
-const Ads={show(kind,done){const ov=$('#ad'),rw=kind==='rewarded';let t=rw?5:3,ok=false;
- ov.hidden=false;
- ov.innerHTML=`<div class="adbox"><small>Заглушка: настоящую рекламу подключим позже</small><h2>${rw?'Видео за награду':'Рекламная пауза'}</h2><div class="adfake">РЕКЛАМА</div><button id="adx"></button></div>`;
- const b=$('#adx'),lab=()=>{b.disabled=!rw&&t>0;b.textContent=t>0?(rw?`Закрыть без награды (${t})`:`Подождите ${t} с`):(rw?'Получить награду':'Закрыть')};
- lab();b.focus();const iv=setInterval(()=>{if(t>0){t--;ok=t===0;lab()}},1000);
- b.onclick=()=>{clearInterval(iv);ov.hidden=true;ov.innerHTML='';done(rw?ok:true)}}};
+
+const Ads = {
+  show(kind, done) {
+    if (typeof vkBridge === 'undefined') { done(true); return; }
+    const format = kind === 'rewarded' ? 'reward' : 'interstitial';
+    
+    vkBridge.send('VKWebAppCheckNativeAds', { ad_format: format })
+      .then(data => {
+        if (data.result) {
+          vkBridge.send('VKWebAppShowNativeAds', { ad_format: format })
+            .then(res => done(res.result))
+            .catch(() => done(kind !== 'rewarded'));
+        } else {
+          done(kind !== 'rewarded');
+        }
+      })
+      .catch(() => done(kind !== 'rewarded'));
+  }
+};
+
 function start(){if(pendingAd){pendingAd=false;Ads.show('interstitial',begin)}else begin()}
 function begin(){counted=false;gid++;S=fresh();H=[];sel=null;legalSel=[];busy=false;closePromo();
  clearInterval(tcInt);
