@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><title>Шахматы</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -47,8 +48,15 @@ ol li span{display:inline-block;min-width:5em}
 .adbox{width:min(92vw,360px);background:var(--bg);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;text-align:center}
 .adbox small{color:var(--mut)}.adbox h2{margin:0;font-size:1.5rem}
 .adfake{height:180px;display:grid;place-items:center;border:2px dashed var(--mut);border-radius:6px;color:var(--mut);letter-spacing:.2em}
-</style><script>function initBridge(){try{vkBridge.send('VKWebAppInit',{})}catch(e){}}</script>
-<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js" onload="initBridge()"></script>
+</style><script>
+if(!window.structuredClone)window.structuredClone=o=>JSON.parse(JSON.stringify(o));
+addEventListener('error',e=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#b3261e;color:#fff;padding:8px;font:14px sans-serif';d.textContent='Ошибка: '+e.message;(document.body||document.documentElement).append(d)});
+(function(){try{
+ if(window.AndroidBridge&&AndroidBridge.VKWebAppInit)AndroidBridge.VKWebAppInit(JSON.stringify({}));
+ else if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.VKWebAppInit)webkit.messageHandlers.VKWebAppInit.postMessage({});
+ else if(parent!==window)parent.postMessage({handler:'VKWebAppInit',params:{},type:'vk-connect'},'*')}catch(e){}})();
+</script>
+<script async src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js" onload="try{vkBridge.send('VKWebAppInit',{})}catch(e){}"></script>
 </head><body>
 <main class="app">
 <section><div class="frame"><div id="board" class="board" role="grid" aria-label="Шахматная доска"></div><div id="promo" class="promo" hidden></div></div></section>
