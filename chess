@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Шахматы</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8eeec;--ink:#17262a;--mut:#5d7276;--l:#d6e2dc;--d:#5b8a82;--frame:#1f3033;--acc:#e9a93a;--wp:#fffaf0;--bp:#16212a;--bs:min(88vw,68vh,620px);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1819;--ink:#e3eeec;--mut:#8aa3a6;--l:#a9c2ba;--d:#3f6a63;--frame:#050b0c;--bp:#0b1116}}
+:root[data-theme="dark"]{--bg:#0f1819;--ink:#e3eeec;--mut:#8aa3a6;--l:#a9c2ba;--d:#3f6a63;--frame:#050b0c;--bp:#0b1116}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Spectral,Georgia,serif}
+.app{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:28px;padding:20px 14px}
+.frame{position:relative;padding:clamp(8px,2vw,16px);background:var(--frame);border-radius:6px;box-shadow:0 22px 44px -20px rgba(5,20,20,.6)}
+.board{display:grid;grid-template:repeat(8,1fr)/repeat(8,1fr);width:var(--bs);height:var(--bs)}
+.sq{position:relative;display:grid;place-items:center;cursor:pointer;background-image:var(--a,none),var(--b,none)}
+.sq.l{background-color:var(--l);color:var(--d)}.sq.d{background-color:var(--d);color:var(--l)}
+.sq[data-n]::before{content:attr(data-n);position:absolute;left:4px;top:2px}
+.sq[data-f]::after{content:attr(data-f);position:absolute;right:4px;bottom:1px}
+.sq[data-n]::before,.sq[data-f]::after{font-size:calc(var(--bs)/8*.17);font-weight:600}
+.last{--a:linear-gradient(rgba(233,169,58,.42),rgba(233,169,58,.42))}
+.chk{--a:radial-gradient(circle,rgba(216,60,50,.95),rgba(216,60,50,0) 72%)}
+.dot{--b:radial-gradient(circle,rgba(23,38,42,.38) 0 17%,transparent 19%)}
+.cap{box-shadow:inset 0 0 0 4px rgba(233,169,58,.9)}
+.sel{box-shadow:inset 0 0 0 3px var(--acc)}
+.pc{font-size:calc(var(--bs)/8*.8);line-height:1;pointer-events:none;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols",serif}
+.pc.w{color:var(--wp);text-shadow:0 1px 0 #243638,0 -1px 0 #243638,1px 0 0 #243638,-1px 0 0 #243638,0 3px 4px rgba(0,0,0,.35)}
+.pc.b{color:var(--bp);text-shadow:0 1px 0 rgba(255,255,255,.4),0 2px 3px rgba(0,0,0,.4)}
+.side{width:min(88vw,300px);display:flex;flex-direction:column;gap:14px}
+h1{font-size:2.6rem;font-weight:600;margin:0;letter-spacing:-.01em}
+.status{font-size:1.2rem;margin:0;min-height:1.6em;display:flex;align-items:center;gap:10px}
+.status i{width:14px;height:14px;border-radius:50%;border:2px solid var(--frame);flex:none}
+.status i.w{background:var(--wp)}.status i.b{background:var(--bp)}
+button{font:inherit;font-size:1rem;color:var(--ink);background:transparent;border:1.5px solid var(--frame);border-radius:4px;padding:9px 12px;cursor:pointer}
+button:hover{background:rgba(91,138,130,.18)}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button.primary,button.on{background:var(--frame);color:var(--bg)}
+.seg,.row{display:flex;gap:8px}.seg button,.row button{flex:1}
+.cp{font-size:1.35rem;min-height:1.6em;display:flex;align-items:center;gap:8px;color:var(--mut)}
+.cp b{font-size:.9rem;font-weight:400;min-width:5.5em}.cp span.s{letter-spacing:-.12em}
+ol{margin:0;padding:0 0 0 1.6em;max-height:170px;overflow:auto;color:var(--mut);font-size:.95rem;font-variant-numeric:tabular-nums;line-height:1.6}
+ol li span{display:inline-block;min-width:5em}
+[hidden]{display:none!important}
+.promo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,18,18,.62);border-radius:6px;z-index:10}
+.promo div{display:flex;gap:6px;padding:10px;background:var(--bg);border-radius:6px}
+.promo button{padding:2px 8px;background:var(--d);border-color:var(--frame)}
+.promo button:hover{background:var(--l)}
+[disabled]{opacity:.5;cursor:default}
+.ad{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(8,18,18,.78);padding:16px}
+.adbox{width:min(92vw,360px);background:var(--bg);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.adbox small{color:var(--mut)}.adbox h2{margin:0;font-size:1.5rem}
+.adfake{height:180px;display:grid;place-items:center;border:2px dashed var(--mut);border-radius:6px;color:var(--mut);letter-spacing:.2em}
+</style><script>function initBridge(){try{vkBridge.send('VKWebAppInit',{})}catch(e){}}</script>
+<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js" onload="initBridge()"></script>
+</head><body>
+<main class="app">
+<section><div class="frame"><div id="board" class="board" role="grid" aria-label="Шахматная доска"></div><div id="promo" class="promo" hidden></div></div></section>
+<aside class="side">
+<h1>Шахматы</h1>
+<p id="status" class="status" aria-live="polite"></p>
+<div class="seg"><button data-m="2" class="on">Вдвоём</button><button data-m="1">С компьютером</button></div>
+<div class="seg" id="side" hidden><button data-s="w" class="on">За белых</button><button data-s="b">За чёрных</button></div>
+<div class="row"><button id="undo">Отменить ход</button><button id="flip">Повернуть</button></div>
+<button id="new" class="primary">Новая партия</button>
+<div class="cp"><b>Взяли белые</b><span class="s" id="capW"></span></div>
+<div class="cp"><b>Взяли чёрные</b><span class="s" id="capB"></span></div>
+<ol id="log"></ol>
+</aside></main>
+<div id="ad" class="ad" hidden role="dialog" aria-modal="true"></div>
+<script>
+const $=s=>document.querySelector(s),SYM={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'},PV={P:1,N:3,B:3.2,R:5,Q:9,K:0};
+const N8=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]],D8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+let S,H,sel,legalSel,flip=false,mode=2,over=false,busy=false,hu='w',pend=false,gid=0,games=0,pendingAd=false,counted=false;
+const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8,sqn=(r,c)=>'abcdefgh'[c]+(8-r);
+function fresh(){const b=Array.from({length:8},()=>Array(8).fill(null));
+ 'RNBQKBNR'.split('').forEach((p,i)=>{b[0][i]='b'+p;b[7][i]='w'+p;b[1][i]='bP';b[6][i]='wP'});
+ return{b,t:'w',c:{wK:1,wQ:1,bK:1,bQ:1},ep:null,cap:{w:[],b:[]},last:null,log:[]}}
+function attacked(b,r,c,by){const pr=by==='w'?r+1:r-1;
+ for(const dc of[-1,1])if(inb(pr,c+dc)&&b[pr][c+dc]===by+'P')return true;
+ for(const[dr,dc]of N8)if(inb(r+dr,c+dc)&&b[r+dr][c+dc]===by+'N')return true;
+ for(const[dr,dc]of D8){if(inb(r+dr,c+dc)&&b[r+dr][c+dc]===by+'K')return true;
+  let y=r+dr,x=c+dc;while(inb(y,x)){const p=b[y][x];if(p){if(p[0]===by){const k=p[1];if(k==='Q'||(k==='R'&&(!dr||!dc))||(k==='B'&&dr&&dc))return true}break}y+=dr;x+=dc}}
+ return false}
+function pseudo(S,r,c){const b=S.b,p=b[r][c],col=p[0],k=p[1],out=[],en=col==='w'?'b':'w';
+ const add=(tr,tc,x)=>out.push({fr:r,fc:c,tr,tc,...x});
+ if(k==='P'){const d=col==='w'?-1:1,st=col==='w'?6:1;
+  if(inb(r+d,c)&&!b[r+d][c]){add(r+d,c);if(r===st&&!b[r+2*d][c])add(r+2*d,c,{dbl:1})}
+  for(const dc of[-1,1]){const y=r+d,x=c+dc;if(!inb(y,x))continue;
+   if(b[y][x]&&b[y][x][0]===en)add(y,x);else if(S.ep&&S.ep[0]===y&&S.ep[1]===x)add(y,x,{ep:1})}}
+ else if(k==='N'||k==='K'){
+  for(const[dr,dc]of k==='N'?N8:D8){const y=r+dr,x=c+dc;if(inb(y,x)&&(!b[y][x]||b[y][x][0]===en))add(y,x)}
+  const R=col==='w'?7:0;
+  if(k==='K'&&r===R&&c===4&&!attacked(b,R,4,en)){
+   if(S.c[col+'K']&&!b[R][5]&&!b[R][6]&&b[R][7]===col+'R'&&!attacked(b,R,5,en)&&!attacked(b,R,6,en))add(R,6,{castle:'K'});
+   if(S.c[col+'Q']&&!b[R][3]&&!b[R][2]&&!b[R][1]&&b[R][0]===col+'R'&&!attacked(b,R,3,en)&&!attacked(b,R,2,en))add(R,2,{castle:'Q'})}}
+ else for(const[dr,dc]of D8){if(k==='R'&&dr&&dc)continue;if(k==='B'&&(!dr||!dc))continue;
+  let y=r+dr,x=c+dc;while(inb(y,x)){if(!b[y][x])add(y,x);else{if(b[y][x][0]===en)add(y,x);break}y+=dr;x+=dc}}
+ return out}
+function apply(S,m){const n=structuredClone(S),b=n.b,p=b[m.fr][m.fc],col=p[0];
+ let got=b[m.tr][m.tc];if(m.ep){got=b[m.fr][m.tc];b[m.fr][m.tc]=null}
+ if(got)n.cap[col].push(got[1]);
+ b[m.tr][m.tc]=p;b[m.fr][m.fc]=null;
+ if(p[1]==='P'&&(m.tr===0||m.tr===7))b[m.tr][m.tc]=col+(m.promo||'Q');
+ if(m.castle){const R=m.tr;if(m.castle==='K'){b[R][5]=b[R][7];b[R][7]=null}else{b[R][3]=b[R][0];b[R][0]=null}}
+ if(p[1]==='K'){n.c[col+'K']=0;n.c[col+'Q']=0}
+ for(const[r,c,k]of[[7,0,'wQ'],[7,7,'wK'],[0,0,'bQ'],[0,7,'bK']])if((m.fr===r&&m.fc===c)||(m.tr===r&&m.tc===c))n.c[k]=0;
+ n.ep=m.dbl?[(m.fr+m.tr)/2,m.fc]:null;n.t=col==='w'?'b':'w';n.last=[m.fr,m.fc,m.tr,m.tc];return n}
+function kingPos(b,col){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]===col+'K')return[r,c]}
+const inCheck=(S,col)=>{const[r,c]=kingPos(S.b,col);return attacked(S.b,r,c,col==='w'?'b':'w')};
+const legal=(S,r,c)=>pseudo(S,r,c).filter(m=>!inCheck(apply(S,m),S.b[r][c][0]));
+function allLegal(S){const o=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(S.b[r][c]&&S.b[r][c][0]===S.t)o.push(...legal(S,r,c));return o}
+function ev(s,sd){let v=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=s.b[r][c];if(!p)continue;
+ const x=PV[p[1]]+(p[1]==='P'?0:.04*(7-Math.abs(3.5-c)-Math.abs(3.5-r)));v+=p[0]===sd?x:-x}return v}
+function ai(s){const sd=s.t,op=sd==='w'?'b':'w';let best=null,bs=-1e9;
+ for(const m of allLegal(s)){const s1=apply(s,m),rep=allLegal(s1);let sc;
+  if(!rep.length)sc=inCheck(s1,op)?1e6:0;else{sc=1e9;for(const q of rep){const v=ev(apply(s1,q),sd);if(v<sc)sc=v}}
+  sc+=Math.random()*.05;if(sc>bs){bs=sc;best=m}}
+ return best}
+function play(m){const p=S.b[m.fr][m.fc],pr=p[1]==='P'&&(m.tr===0||m.tr===7)?'='+(m.promo||'Q'):'',
+ name=(m.castle?(m.castle==='K'?'0–0':'0–0–0'):(p[1]==='P'?'':p[1])+sqn(m.fr,m.fc)+'–'+sqn(m.tr,m.tc))+pr;
+ const mvs=[[m.fr,m.fc,m.tr,m.tc]];if(m.castle)mvs.push(m.castle==='K'?[m.tr,7,m.tr,5]:[m.tr,0,m.tr,3]);
+ const sqe=(r,c)=>$(`.sq[data-r="${r}"][data-c="${c}"]`),from=mvs.map(a=>sqe(a[0],a[1]).getBoundingClientRect());
+ H.push(S);const log=[...S.log,name];S=apply(S,m);S.log=log;sel=null;legalSel=[];render();
+ if(!matchMedia('(prefers-reduced-motion: reduce)').matches)mvs.forEach((a,i)=>{const q=sqe(a[2],a[3]),el=q.firstElementChild,t=q.getBoundingClientRect();
+  if(el&&el.animate){q.style.zIndex=5;el.animate([{transform:`translate(${from[i].left-t.left}px,${from[i].top-t.top}px)`},{transform:'none'}],{duration:240,easing:'cubic-bezier(.3,.7,.2,1)'}).onfinish=()=>{q.style.zIndex=''}}});
+ aiTurn()}
+function aiTurn(){if(mode===1&&S.t!==hu&&!over){busy=true;const g=gid;setTimeout(()=>{if(g!==gid)return;busy=false;const a=ai(S);if(a)play(a)},350)}}
+function closePromo(){pend=false;$('#promo').hidden=true}
+function askPromo(mv){pend=true;const P=$('#promo'),col=S.t;P.hidden=false;P.innerHTML='<div></div>';
+ for(const k of'QRBN'){const b=document.createElement('button');b.setAttribute('aria-label',k);b.innerHTML=`<span class="pc ${col}">${SYM[k]}\uFE0E</span>`;b.onclick=e=>{e.stopPropagation();closePromo();play({...mv,promo:k})};P.firstChild.append(b)}}
+$('#promo').onclick=closePromo;
+function status(){const n=allLegal(S).length,ch=inCheck(S,S.t);over=!n;
+ if(!n)return ch?`Мат. Победили ${S.t==='w'?'чёрные':'белые'}`:'Пат. Ничья';
+ return `Ход ${S.t==='w'?'белых':'чёрных'}${ch?' — шах':''}`}
+function caps(a){return[...a].sort((x,y)=>PV[y]-PV[x]).map(k=>SYM[k]+'\uFE0E').join('')}
+function render(){const B=$('#board');B.innerHTML='';
+ const chk=inCheck(S,S.t)?kingPos(S.b,S.t):null;
+ for(let i=0;i<64;i++){let r=i>>3,c=i%8;if(flip){r=7-r;c=7-c}
+  const q=document.createElement('div'),p=S.b[r][c];q.className='sq '+((r+c)%2?'d':'l');q.dataset.r=r;q.dataset.c=c;
+  if(i%8===0)q.dataset.n=8-r;if(i>=56)q.dataset.f='abcdefgh'[c];
+  const L=S.last;if(L&&((L[0]===r&&L[1]===c)||(L[2]===r&&L[3]===c)))q.classList.add('last');
+  if(sel&&sel[0]===r&&sel[1]===c)q.classList.add('sel');
+  if(chk&&chk[0]===r&&chk[1]===c)q.classList.add('chk');
+  const mv=legalSel.find(m=>m.tr===r&&m.tc===c);if(mv)q.classList.add(p||mv.ep?'cap':'dot');
+  if(p){const s=document.createElement('span');s.className='pc '+p[0];s.textContent=SYM[p[1]]+'\uFE0E';q.append(s)}
+  B.append(q)}
+ const st=status();if(over&&!counted){counted=true;games++;if(games%3===0)pendingAd=true}$('#status').innerHTML=(over?'':`<i class="${S.t}"></i>`)+st;
+ $('#capW').textContent=caps(S.cap.w);$('#capB').textContent=caps(S.cap.b);
+ let h='';for(let i=0;i<S.log.length;i+=2)h+=`<li><span>${S.log[i]}</span>${S.log[i+1]||''}</li>`;
+ const o=$('#log');o.innerHTML=h;o.scrollTop=o.scrollHeight}
+$('#board').onclick=e=>{const q=e.target.closest('.sq');if(!q||over||busy||pend)return;
+ const r=+q.dataset.r,c=+q.dataset.c,mv=legalSel.find(m=>m.tr===r&&m.tc===c);
+ if(mv){if(S.b[mv.fr][mv.fc][1]==='P'&&(mv.tr===0||mv.tr===7))askPromo(mv);else play(mv);return}
+ const p=S.b[r][c];
+ if(p&&p[0]===S.t&&(mode===2||S.t===hu)){sel=[r,c];legalSel=legal(S,r,c)}else{sel=null;legalSel=[]}
+ render()};
+// Заглушка рекламы. Позже заменить тело show на вызов VK Bridge; контракт: show(kind, done), kind = 'interstitial' | 'rewarded', done(true) если показ завершён/награда получена
+const Ads={show(kind,done){const ov=$('#ad'),rw=kind==='rewarded';let t=rw?5:3,ok=false;
+ ov.hidden=false;
+ ov.innerHTML=`<div class="adbox"><small>Заглушка: настоящую рекламу подключим позже</small><h2>${rw?'Видео за награду':'Рекламная пауза'}</h2><div class="adfake">РЕКЛАМА</div><button id="adx"></button></div>`;
+ const b=$('#adx'),lab=()=>{b.disabled=!rw&&t>0;b.textContent=t>0?(rw?`Закрыть без награды (${t})`:`Подождите ${t} с`):(rw?'Получить награду':'Закрыть')};
+ lab();b.focus();const iv=setInterval(()=>{if(t>0){t--;ok=t===0;lab()}},1000);
+ b.onclick=()=>{clearInterval(iv);ov.hidden=true;ov.innerHTML='';done(rw?ok:true)}}};
+function start(){if(pendingAd){pendingAd=false;Ads.show('interstitial',begin)}else begin()}
+function begin(){counted=false;gid++;S=fresh();H=[];sel=null;legalSel=[];busy=false;closePromo();render();aiTurn()}
+$('#new').onclick=start;
+$('#flip').onclick=()=>{flip=!flip;render()};
+$('#undo').onclick=()=>{if(H.length<(mode===1&&hu==='b'?2:1)||busy||pend)return;Ads.show('rewarded',ok=>{if(!ok)return;S=H.pop();if(mode===1&&S.t!==hu&&H.length)S=H.pop();sel=null;legalSel=[];render()})};
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+ if(b.dataset.m)mode=+b.dataset.m;if(b.dataset.s)hu=b.dataset.s;
+ $('#side').hidden=mode!==1;flip=mode===1&&hu==='b';start()});
+start();
+</script></body></html>
