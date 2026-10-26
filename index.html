@@ -28,10 +28,11 @@ h1{font-size:2.6rem;font-weight:600;margin:0;letter-spacing:-.01em}
 .status{font-size:1.2rem;margin:0;min-height:1.6em;display:flex;align-items:center;gap:10px}
 .status i{width:14px;height:14px;border-radius:50%;border:2px solid var(--frame);flex:none}
 .status i.w{background:var(--wp)}.status i.b{background:var(--bp)}
-button{font:inherit;font-size:1rem;color:var(--ink);background:transparent;border:1.5px solid var(--frame);border-radius:4px;padding:9px 12px;cursor:pointer}
+button, select{font:inherit;font-size:1rem;color:var(--ink);background:transparent;border:1.5px solid var(--frame);border-radius:4px;padding:9px 12px;cursor:pointer; outline:none;}
 button:hover{background:rgba(91,138,130,.18)}
-button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button:focus-visible, select:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
 button.primary,button.on{background:var(--frame);color:var(--bg)}
+select { width: 100%; background: var(--bg); }
 .seg,.row{display:flex;gap:8px}.seg button,.row button{flex:1}
 .cp{font-size:1.35rem;min-height:1.6em;display:flex;align-items:center;gap:8px;color:var(--mut)}
 .cp b{font-size:.9rem;font-weight:400;min-width:5.5em}.cp span.s{letter-spacing:-.12em}
@@ -47,6 +48,8 @@ ol li span{display:inline-block;min-width:5em}
 .adbox{width:min(92vw,360px);background:var(--bg);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;text-align:center}
 .adbox small{color:var(--mut)}.adbox h2{margin:0;font-size:1.5rem}
 .adfake{height:180px;display:grid;place-items:center;border:2px dashed var(--mut);border-radius:6px;color:var(--mut);letter-spacing:.2em}
+.timer { flex: 1; padding: 10px; background: var(--frame); color: var(--bg); border-radius: 4px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 1.1rem; border: 2px solid transparent; transition: 0.2s;}
+.timer.active { border-color: var(--acc); background: var(--d); color: #fff; box-shadow: 0 0 8px rgba(233,169,58,.4); }
 </style><script>
 if(!window.structuredClone)window.structuredClone=o=>JSON.parse(JSON.stringify(o));
 addEventListener('error',e=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#b3261e;color:#fff;padding:8px;font:14px sans-serif';d.textContent='Ошибка: '+e.message;(document.body||document.documentElement).append(d)});
@@ -61,6 +64,29 @@ addEventListener('error',e=>{const d=document.createElement('div');d.style.cssTe
 <section><div class="frame"><div id="board" class="board" role="grid" aria-label="Шахматная доска"></div><div id="promo" class="promo" hidden></div></div></section>
 <aside class="side">
 <h1>Шахматы</h1>
+<div class="row">
+  <select id="tc" aria-label="Контроль времени">
+    <option value="0+0">Без времени</option>
+    <optgroup label="Пуля">
+      <option value="60+0">1+0 (1 мин)</option>
+      <option value="120+1">2+1 (2 мин + 1 с)</option>
+    </optgroup>
+    <optgroup label="Блиц">
+      <option value="180+0">3+0 (3 мин)</option>
+      <option value="180+2">3+2 (3 мин + 2 с)</option>
+      <option value="300+0" selected>5+0 (5 мин)</option>
+      <option value="300+3">5+3 (5 мин + 3 с)</option>
+    </optgroup>
+    <optgroup label="Рапид">
+      <option value="600+0">10+0 (10 мин)</option>
+      <option value="900+10">15+10 (15 мин + 10 с)</option>
+    </optgroup>
+  </select>
+</div>
+<div class="row" id="timers" hidden>
+  <div id="tw" class="timer">Белые: <span>0:00</span></div>
+  <div id="tb" class="timer">Чёрные: <span>0:00</span></div>
+</div>
 <p id="status" class="status" aria-live="polite"></p>
 <div class="seg"><button data-m="2" class="on">Вдвоём</button><button data-m="1">С компьютером</button></div>
 <div class="seg" id="side" hidden><button data-s="w" class="on">За белых</button><button data-s="b">За чёрных</button></div>
@@ -75,6 +101,8 @@ addEventListener('error',e=>{const d=document.createElement('div');d.style.cssTe
 const $=s=>document.querySelector(s),SYM={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'},PV={P:1,N:3,B:3.2,R:5,Q:9,K:0};
 const N8=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]],D8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 let S,H,sel,legalSel,flip=false,mode=2,over=false,busy=false,hu='w',pend=false,gid=0,games=0,pendingAd=false,counted=false;
+let tcW=0, tcB=0, tcInc=0, tcInt=null, lastT=0, tcActive=false, timeOver=false;
+
 const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8,sqn=(r,c)=>'abcdefgh'[c]+(8-r);
 function fresh(){const b=Array.from({length:8},()=>Array(8).fill(null));
  'RNBQKBNR'.split('').forEach((p,i)=>{b[0][i]='b'+p;b[7][i]='w'+p;b[1][i]='bP';b[6][i]='wP'});
@@ -120,23 +148,47 @@ function ai(s){const sd=s.t,op=sd==='w'?'b':'w';let best=null,bs=-1e9;
   if(!rep.length)sc=inCheck(s1,op)?1e6:0;else{sc=1e9;for(const q of rep){const v=ev(apply(s1,q),sd);if(v<sc)sc=v}}
   sc+=Math.random()*.05;if(sc>bs){bs=sc;best=m}}
  return best}
-function play(m){const p=S.b[m.fr][m.fc],pr=p[1]==='P'&&(m.tr===0||m.tr===7)?'='+(m.promo||'Q'):'',
+function tickTime() {
+  if (!tcActive || over || pend || timeOver) { lastT = performance.now(); return; }
+  const now = performance.now();
+  const dt = (now - lastT) / 1000;
+  lastT = now;
+  if (S.t === 'w') tcW -= dt; else tcB -= dt;
+  if (tcW <= 0) { tcW = 0; timeOver = true; over = true; $('#status').innerHTML = 'Время вышло. Победили чёрные'; if(!counted){counted=true;games++;} }
+  if (tcB <= 0) { tcB = 0; timeOver = true; over = true; $('#status').innerHTML = 'Время вышло. Победили белые'; if(!counted){counted=true;games++;} }
+  renderTimers();
+}
+function renderTimers() {
+  const fw = t => { const m = Math.floor(t/60), s = Math.floor(t%60); return m+':'+(s<10?'0':'')+s; };
+  $('#tw').innerHTML = 'Белые: <span>' + fw(tcW) + '</span>';
+  $('#tb').innerHTML = 'Чёрные: <span>' + fw(tcB) + '</span>';
+  if (tcW > 0 || tcB > 0) {
+     $('#tw').classList.toggle('active', S.t === 'w' && !over && tcActive && !timeOver);
+     $('#tb').classList.toggle('active', S.t === 'b' && !over && tcActive && !timeOver);
+  }
+}
+function play(m){
+ if (tcW > 0 && tcActive) { if (S.t === 'w') tcW += tcInc; else tcB += tcInc; }
+ tcActive = true; lastT = performance.now();
+ 
+ const p=S.b[m.fr][m.fc],pr=p[1]==='P'&&(m.tr===0||m.tr===7)?'='+(m.promo||'Q'):'',
  name=(m.castle?(m.castle==='K'?'0–0':'0–0–0'):(p[1]==='P'?'':p[1])+sqn(m.fr,m.fc)+'–'+sqn(m.tr,m.tc))+pr;
  const mvs=[[m.fr,m.fc,m.tr,m.tc]];if(m.castle)mvs.push(m.castle==='K'?[m.tr,7,m.tr,5]:[m.tr,0,m.tr,3]);
  const sqe=(r,c)=>$(`.sq[data-r="${r}"][data-c="${c}"]`),from=mvs.map(a=>sqe(a[0],a[1]).getBoundingClientRect());
  H.push(S);const log=[...S.log,name];S=apply(S,m);S.log=log;sel=null;legalSel=[];render();
+ renderTimers();
  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)mvs.forEach((a,i)=>{const q=sqe(a[2],a[3]),el=q.firstElementChild,t=q.getBoundingClientRect();
   if(el&&el.animate){q.style.zIndex=5;el.animate([{transform:`translate(${from[i].left-t.left}px,${from[i].top-t.top}px)`},{transform:'none'}],{duration:240,easing:'cubic-bezier(.3,.7,.2,1)'}).onfinish=()=>{q.style.zIndex=''}}});
  aiTurn()}
 function aiTurn(){if(mode===1&&S.t!==hu&&!over){busy=true;const g=gid;setTimeout(()=>{if(g!==gid)return;busy=false;const a=ai(S);if(a)play(a)},350)}}
 function closePromo(){pend=false;$('#promo').hidden=true}
 function askPromo(mv){pend=true;const P=$('#promo'),col=S.t;P.hidden=false;P.innerHTML='<div></div>';
- for(const k of'QRBN'){const b=document.createElement('button');b.setAttribute('aria-label',k);b.innerHTML=`<span class="pc ${col}">${SYM[k]}\uFE0E</span>`;b.onclick=e=>{e.stopPropagation();closePromo();play({...mv,promo:k})};P.firstChild.append(b)}}
+ for(const k of'QRBN'){const b=document.createElement('button');b.setAttribute('aria-label',k);b.innerHTML=`<span class="pc ${col}">${SYM[k]}︎</span>`;b.onclick=e=>{e.stopPropagation();closePromo();play({...mv,promo:k})};P.firstChild.append(b)}}
 $('#promo').onclick=closePromo;
-function status(){const n=allLegal(S).length,ch=inCheck(S,S.t);over=!n;
+function status(){if(timeOver)return $('#status').innerHTML; const n=allLegal(S).length,ch=inCheck(S,S.t);over=!n;
  if(!n)return ch?`Мат. Победили ${S.t==='w'?'чёрные':'белые'}`:'Пат. Ничья';
  return `Ход ${S.t==='w'?'белых':'чёрных'}${ch?' — шах':''}`}
-function caps(a){return[...a].sort((x,y)=>PV[y]-PV[x]).map(k=>SYM[k]+'\uFE0E').join('')}
+function caps(a){return[...a].sort((x,y)=>PV[y]-PV[x]).map(k=>SYM[k]+'︎').join('')}
 function render(){const B=$('#board');B.innerHTML='';
  const chk=inCheck(S,S.t)?kingPos(S.b,S.t):null;
  for(let i=0;i<64;i++){let r=i>>3,c=i%8;if(flip){r=7-r;c=7-c}
@@ -146,9 +198,9 @@ function render(){const B=$('#board');B.innerHTML='';
   if(sel&&sel[0]===r&&sel[1]===c)q.classList.add('sel');
   if(chk&&chk[0]===r&&chk[1]===c)q.classList.add('chk');
   const mv=legalSel.find(m=>m.tr===r&&m.tc===c);if(mv)q.classList.add(p||mv.ep?'cap':'dot');
-  if(p){const s=document.createElement('span');s.className='pc '+p[0];s.textContent=SYM[p[1]]+'\uFE0E';q.append(s)}
+  if(p){const s=document.createElement('span');s.className='pc '+p[0];s.textContent=SYM[p[1]]+'︎';q.append(s)}
   B.append(q)}
- const st=status();if(over&&!counted){counted=true;games++;if(games%3===0)pendingAd=true}$('#status').innerHTML=(over?'':`<i class="${S.t}"></i>`)+st;
+ const st=status();if(over&&!counted){counted=true;games++;if(games%3===0)pendingAd=true;}$('#status').innerHTML=(over&&!timeOver?'':`<i class="${S.t}"></i>`)+st;
  $('#capW').textContent=caps(S.cap.w);$('#capB').textContent=caps(S.cap.b);
  let h='';for(let i=0;i<S.log.length;i+=2)h+=`<li><span>${S.log[i]}</span>${S.log[i+1]||''}</li>`;
  const o=$('#log');o.innerHTML=h;o.scrollTop=o.scrollHeight}
@@ -158,7 +210,6 @@ $('#board').onclick=e=>{const q=e.target.closest('.sq');if(!q||over||busy||pend)
  const p=S.b[r][c];
  if(p&&p[0]===S.t&&(mode===2||S.t===hu)){sel=[r,c];legalSel=legal(S,r,c)}else{sel=null;legalSel=[]}
  render()};
-// Заглушка рекламы. Позже заменить тело show на вызов VK Bridge; контракт: show(kind, done), kind = 'interstitial' | 'rewarded', done(true) если показ завершён/награда получена
 const Ads={show(kind,done){const ov=$('#ad'),rw=kind==='rewarded';let t=rw?5:3,ok=false;
  ov.hidden=false;
  ov.innerHTML=`<div class="adbox"><small>Заглушка: настоящую рекламу подключим позже</small><h2>${rw?'Видео за награду':'Рекламная пауза'}</h2><div class="adfake">РЕКЛАМА</div><button id="adx"></button></div>`;
@@ -166,10 +217,17 @@ const Ads={show(kind,done){const ov=$('#ad'),rw=kind==='rewarded';let t=rw?5:3,o
  lab();b.focus();const iv=setInterval(()=>{if(t>0){t--;ok=t===0;lab()}},1000);
  b.onclick=()=>{clearInterval(iv);ov.hidden=true;ov.innerHTML='';done(rw?ok:true)}}};
 function start(){if(pendingAd){pendingAd=false;Ads.show('interstitial',begin)}else begin()}
-function begin(){counted=false;gid++;S=fresh();H=[];sel=null;legalSel=[];busy=false;closePromo();render();aiTurn()}
+function begin(){counted=false;gid++;S=fresh();H=[];sel=null;legalSel=[];busy=false;closePromo();
+ clearInterval(tcInt);
+ const [bTime, iTime] = $('#tc').value.split('+').map(Number);
+ tcInc = iTime; tcW = tcB = bTime; tcActive = false; timeOver = false;
+ if (bTime > 0) { $('#timers').hidden = false; renderTimers(); lastT = performance.now(); tcInt = setInterval(tickTime, 100); } 
+ else { $('#timers').hidden = true; }
+ render();aiTurn()}
+$('#tc').onchange=start;
 $('#new').onclick=start;
 $('#flip').onclick=()=>{flip=!flip;render()};
-$('#undo').onclick=()=>{if(H.length<(mode===1&&hu==='b'?2:1)||busy||pend)return;Ads.show('rewarded',ok=>{if(!ok)return;S=H.pop();if(mode===1&&S.t!==hu&&H.length)S=H.pop();sel=null;legalSel=[];render()})};
+$('#undo').onclick=()=>{if(H.length<(mode===1&&hu==='b'?2:1)||busy||pend||timeOver)return;Ads.show('rewarded',ok=>{if(!ok)return;S=H.pop();if(mode===1&&S.t!==hu&&H.length)S=H.pop();sel=null;legalSel=[];render()})};
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
  if(b.dataset.m)mode=+b.dataset.m;if(b.dataset.s)hu=b.dataset.s;
  $('#side').hidden=mode!==1;flip=mode===1&&hu==='b';start()});
